@@ -3,8 +3,9 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { User, UserRole } from '../types';
 import { bulkAddUsers, getAllUsers, updatePassword, addUser, deleteUser, updateUser } from '../services/authService';
+import { getTranslation } from '../services/i18nService';
 import { exportToExcel } from '../utils/excel';
-import { Upload, AlertTriangle, CheckCircle, Download, Key, Search, Trash2, Edit2, Check, X, UserPlus, ShieldAlert, RefreshCw, Layers, FileUp, Clock, AlertCircle } from 'lucide-react';
+import { Upload, CheckCircle, Download, Key, Search, Trash2, Edit2, Check, X, UserPlus, RefreshCw, Layers, FileUp, Clock, AlertCircle, Building, ShieldCheck, Filter } from 'lucide-react';
 
 interface UserQueueItem {
   user: User;
@@ -22,6 +23,8 @@ const UserUpload: React.FC = () => {
   // Management State
   const [usersList, setUsersList] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDepartment, setSelectedDepartment] = useState('All');
+  const [selectedRole, setSelectedRole] = useState('All');
   
   // Individual CRUD Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -37,6 +40,19 @@ const UserUpload: React.FC = () => {
     setUsersList(getAllUsers());
   }, []);
 
+  const departments = useMemo(() => ['All', ...new Set(usersList.map(u => u.department))], [usersList]);
+  const roles = ['All', UserRole.ADMIN, UserRole.USER];
+
+  const filteredUsers = useMemo(() => {
+    return usersList.filter(u => {
+      const matchesSearch = u.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                           u.department.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesDept = selectedDepartment === 'All' || u.department === selectedDepartment;
+      const matchesRole = selectedRole === 'All' || u.role === selectedRole;
+      return matchesSearch && matchesDept && matchesRole;
+    });
+  }, [usersList, searchTerm, selectedDepartment, selectedRole]);
+
   const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -45,9 +61,7 @@ const UserUpload: React.FC = () => {
     reader.onload = (evt) => {
       const bstr = evt.target?.result;
       const wb = XLSX.read(bstr, { type: 'binary' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      const rawJson = XLSX.utils.sheet_to_json(ws) as any[];
+      const rawJson = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]) as any[];
 
       const newQueueItems: UserQueueItem[] = rawJson.map((row, index) => {
         const id = row.ID || row.id;
@@ -163,29 +177,23 @@ const UserUpload: React.FC = () => {
   };
 
   const handleExport = () => {
-    const exportData = usersList.map(({ id, department, role }) => ({
+    const exportData = filteredUsers.map(({ id, department, role }) => ({
       ID: id,
       Department: department,
       Role: role
     }));
-    exportToExcel(exportData, `DocuHub_Users_${new Date().toISOString().split('T')[0]}`);
+    exportToExcel(exportData, `DocuHub_Users_Filtered_${new Date().toISOString().split('T')[0]}`);
   };
-
-  const filteredUsers = usersList.filter(u => 
-    u.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    u.department.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   const pendingCount = queue.filter(q => q.status === 'pending').length;
   const errorCount = queue.filter(q => q.status === 'error').length;
-  const finishedCount = queue.filter(q => q.status === 'success').length;
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-[34px] font-black text-slate-900 dark:text-white tracking-tight leading-tight">User Management</h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">Manage single users or bulk import via Excel</p>
+          <h1 className="text-[34px] font-black text-slate-900 dark:text-white tracking-tight leading-tight">{getTranslation('user_mgmt_title')}</h1>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">{getTranslation('user_mgmt_subtitle')}</p>
         </div>
 
         <div className="flex bg-slate-200/50 dark:bg-slate-800/50 p-1.5 rounded-[22px] backdrop-blur-sm border border-slate-200 dark:border-slate-700">
@@ -194,14 +202,14 @@ const UserUpload: React.FC = () => {
             className={`px-8 py-2.5 text-sm font-bold rounded-[18px] transition-all flex items-center ${activeTab === 'manage' ? 'bg-white dark:bg-indigo-600 text-indigo-600 dark:text-white shadow-xl' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
           >
             <Layers size={18} className="mr-2" />
-            Manage Index
+            {getTranslation('upload_manage')}
           </button>
           <button 
             onClick={() => setActiveTab('upload')}
             className={`px-8 py-2.5 text-sm font-bold rounded-[18px] transition-all flex items-center ${activeTab === 'upload' ? 'bg-white dark:bg-indigo-600 text-indigo-600 dark:text-white shadow-xl' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
           >
             <FileUp size={18} className="mr-2" />
-            Bulk Upload
+            {getTranslation('upload_bulk')}
           </button>
         </div>
       </header>
@@ -215,53 +223,78 @@ const UserUpload: React.FC = () => {
 
       {activeTab === 'manage' ? (
         <div className="bg-white dark:bg-[#1e293b] rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-800 overflow-hidden">
-          <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex flex-col lg:flex-row gap-6 justify-between items-center bg-white/50 dark:bg-[#1e293b]">
-             <div className="flex flex-col sm:flex-row gap-4 items-center w-full max-w-3xl">
-                <div className="relative w-full group">
+          <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex flex-col gap-6 bg-white/50 dark:bg-[#1e293b]">
+             <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+                <div className="relative w-full max-w-xl group">
                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
                    <input 
                      type="text" 
                      placeholder="Search users..." 
                      value={searchTerm}
                      onChange={(e) => setSearchTerm(e.target.value)}
-                     className="w-full pl-14 pr-6 py-4 bg-slate-50 dark:bg-[#0f172a] border border-slate-100 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 text-sm font-bold dark:text-white"
+                     className="w-full pl-14 pr-6 py-4 bg-slate-50 dark:bg-[#0f172a] border border-slate-100 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 text-sm font-bold dark:text-white shadow-inner"
                    />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-4 w-full lg:w-auto">
+                   <div className="relative flex-1 lg:w-48">
+                      <Building className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                      <select 
+                        value={selectedDepartment}
+                        onChange={(e) => setSelectedDepartment(e.target.value)}
+                        className="w-full pl-10 pr-8 py-3.5 bg-slate-50 dark:bg-[#0f172a] border border-slate-100 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-600 dark:text-slate-300 text-sm appearance-none cursor-pointer hover:border-indigo-300 transition-colors"
+                      >
+                        {departments.map(d => <option key={d} value={d}>{d === 'All' ? 'All Departments' : d}</option>)}
+                      </select>
+                   </div>
+                   <div className="relative flex-1 lg:w-48">
+                      <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                      <select 
+                        value={selectedRole}
+                        onChange={(e) => setSelectedRole(e.target.value)}
+                        className="w-full pl-10 pr-8 py-3.5 bg-slate-50 dark:bg-[#0f172a] border border-slate-100 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-600 dark:text-slate-300 text-sm appearance-none cursor-pointer hover:border-indigo-300 transition-colors"
+                      >
+                        {roles.map(r => <option key={r} value={r}>{r === 'All' ? 'All Roles' : r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+                      </select>
+                   </div>
+                </div>
+             </div>
+
+             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div className="flex gap-2 w-full sm:w-auto">
                   <button 
                     onClick={handleOpenCreateModal}
-                    className="shrink-0 flex items-center px-6 py-4 bg-indigo-600 text-white hover:bg-indigo-700 rounded-2xl transition-all font-bold text-sm shadow-xl shadow-indigo-600/20"
+                    className="flex-1 sm:flex-none flex items-center justify-center px-6 py-3.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-2xl transition-all font-bold text-sm shadow-lg shadow-indigo-600/20 active:scale-95"
                   >
-                    <UserPlus size={18} className="mr-2.5" /> Add User
+                    <UserPlus size={18} className="mr-2.5" /> {getTranslation('btn_add_user')}
                   </button>
                   <button 
                     onClick={handleExport}
-                    className="shrink-0 flex items-center px-6 py-4 bg-[#f1f5ff] dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white rounded-2xl transition-all font-bold text-sm shadow-sm"
+                    className="flex-1 sm:flex-none flex items-center justify-center px-6 py-3.5 bg-white dark:bg-[#0f172a] text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-2xl transition-all font-bold text-sm shadow-sm active:scale-95"
                   >
-                    <Download size={18} className="mr-2.5" /> Export
+                    <Download size={18} className="mr-2.5" /> {getTranslation('btn_export')}
                   </button>
                 </div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{filteredUsers.length} users found</p>
              </div>
-             <p className="text-[11px] font-bold text-slate-400">{filteredUsers.length} users found</p>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-[#f8fafc] dark:bg-[#0f172a] text-slate-400 text-[11px] font-bold border-b border-slate-100 dark:border-slate-800">
                 <tr>
-                  <th className="px-8 py-6">User ID</th>
-                  <th className="px-6 py-6">Department</th>
-                  <th className="px-6 py-6 text-center">Role</th>
-                  <th className="px-8 py-6 text-right">Actions</th>
+                  <th className="px-8 py-6 uppercase tracking-wider">User ID</th>
+                  <th className="px-6 py-6 uppercase tracking-wider">Department</th>
+                  <th className="px-6 py-6 text-center uppercase tracking-wider">Role</th>
+                  <th className="px-8 py-6 text-right uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                {filteredUsers.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all duration-200">
+                {filteredUsers.length > 0 ? filteredUsers.map((u) => (
+                  <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all duration-200 group">
                     <td className="px-8 py-6 font-black text-slate-800 dark:text-slate-100 text-base">{u.id}</td>
                     <td className="px-6 py-6 text-slate-500 dark:text-slate-400 font-bold text-sm tracking-wide">{u.department}</td>
                     <td className="px-6 py-6 text-center">
-                       <span className={`px-4 py-1.5 rounded-lg text-[10px] font-bold ${
+                       <span className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-sm ${
                          u.role === 'admin' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
                        }`}>
                          {u.role}
@@ -269,12 +302,27 @@ const UserUpload: React.FC = () => {
                     </td>
                     <td className="px-8 py-6 text-right">
                       <div className="flex items-center justify-end space-x-2">
-                        <button onClick={() => handleOpenEditModal(u)} className="p-2.5 text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl hover:bg-indigo-600 hover:text-white transition-all"><Edit2 size={16}/></button>
-                        <button onClick={() => handleDeleteUser(u.id)} className="p-2.5 text-rose-600 bg-rose-50 dark:bg-rose-900/30 rounded-xl hover:bg-rose-600 hover:text-white transition-all"><Trash2 size={16}/></button>
+                        <button onClick={() => handleOpenEditModal(u)} className="p-2.5 text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm active:scale-90"><Edit2 size={16}/></button>
+                        <button onClick={() => handleDeleteUser(u.id)} className="p-2.5 text-rose-600 bg-rose-50 dark:bg-rose-900/30 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm active:scale-90"><Trash2 size={16}/></button>
                       </div>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan={4} className="px-8 py-40 text-center">
+                      <div className="flex flex-col items-center opacity-50">
+                        <Users size={48} className="mb-4 text-slate-300" />
+                        <p className="text-slate-400 font-bold text-xs">No users match your filters</p>
+                        <button 
+                          onClick={() => { setSearchTerm(''); setSelectedDepartment('All'); setSelectedRole('All'); }}
+                          className="mt-4 text-indigo-600 text-xs font-bold hover:underline"
+                        >
+                          Clear all filters
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -295,15 +343,13 @@ const UserUpload: React.FC = () => {
 
             {queue.length > 0 && (
               <div className="w-full max-w-4xl space-y-6 animate-in slide-in-from-bottom-6">
-                
-                {/* 1. Action Required Bar (SWAPPED TO TOP) */}
                 <div className="bg-white dark:bg-[#1e293b] p-8 rounded-[36px] flex flex-col md:flex-row gap-6 justify-between items-center border border-slate-100 dark:border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.05)]">
                   <div className="flex items-center space-x-5">
                     <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100/50 dark:border-indigo-800/50">
                       {isProcessing ? <RefreshCw size={26} className="animate-spin" /> : <UserPlus size={26} />}
                     </div>
                     <div>
-                      <p className="text-sm font-black text-slate-800 dark:text-white leading-none mb-1.5">Action Required</p>
+                      <p className="text-sm font-black text-slate-800 dark:text-white leading-none mb-1.5">{getTranslation('action_required')}</p>
                       <p className="text-xs text-slate-400 font-bold">Process {pendingCount} user accounts for system registration.</p>
                     </div>
                   </div>
@@ -321,20 +367,19 @@ const UserUpload: React.FC = () => {
                     ) : (
                       <>
                         <CheckCircle size={20} className="mr-3" />
-                        Begin Import ({pendingCount})
+                        {getTranslation('begin_import')} ({pendingCount})
                       </>
                     )}
                   </button>
                 </div>
 
-                {/* 2. User Queue Header (SWAPPED TO MIDDLE) */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white dark:bg-slate-900/30 p-6 rounded-[28px] border border-slate-100 dark:border-slate-800 gap-4 shadow-sm">
                   <div className="flex items-center">
                     <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white mr-5 shadow-lg shadow-indigo-600/20">
                       <RefreshCw size={24} className={isProcessing ? 'animate-spin' : ''} />
                     </div>
                     <div>
-                      <h3 className="font-black text-slate-800 dark:text-white text-lg leading-tight">User Queue</h3>
+                      <h3 className="font-black text-slate-800 dark:text-white text-lg leading-tight">{getTranslation('user_queue')}</h3>
                       <div className="flex gap-4 mt-0.5">
                         <span className="text-[11px] font-bold text-indigo-500">{pendingCount} Pending</span>
                         {errorCount > 0 && <span className="text-[11px] font-bold text-rose-500">{errorCount} Invalid</span>}
@@ -346,12 +391,11 @@ const UserUpload: React.FC = () => {
                     disabled={isProcessing}
                     className="flex items-center px-5 py-2.5 bg-rose-50 dark:bg-rose-900/20 text-rose-500 hover:bg-rose-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-all font-bold text-xs shadow-sm"
                   >
-                    <Trash2 size={16} className="mr-2" /> Discard all
+                    <Trash2 size={16} className="mr-2" /> {getTranslation('btn_discard_all')}
                   </button>
                 </div>
 
-                {/* 3. List Row */}
-                <div className="max-h-[500px] overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 pb-4">
+                <div className="max-h-[500px] overflow-y-auto space-y-3 pr-2 pb-4">
                   {queue.map((item, idx) => {
                     const statusConfig = {
                       pending: {
@@ -413,7 +457,6 @@ const UserUpload: React.FC = () => {
         </div>
       )}
 
-      {/* CRUD Modal remains same */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white dark:bg-[#1e293b] w-full max-w-md rounded-[32px] shadow-2xl p-10 animate-in zoom-in-95 border border-slate-100 dark:border-slate-800">
@@ -458,14 +501,17 @@ const UserUpload: React.FC = () => {
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-wider">System Role</label>
-                <select 
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
-                  className="w-full px-5 py-3.5 bg-slate-50 dark:bg-[#0f172a] border border-slate-100 dark:border-slate-700 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all dark:text-white font-bold appearance-none cursor-pointer"
-                >
-                  <option value={UserRole.USER}>Standard User</option>
-                  <option value={UserRole.ADMIN}>Administrator</option>
-                </select>
+                <div className="relative">
+                  <select 
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
+                    className="w-full px-5 py-3.5 bg-slate-50 dark:bg-[#0f172a] border border-slate-100 dark:border-slate-700 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all dark:text-white font-bold appearance-none cursor-pointer"
+                  >
+                    <option value={UserRole.USER}>Standard User</option>
+                    <option value={UserRole.ADMIN}>Administrator</option>
+                  </select>
+                  <Filter className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                </div>
               </div>
 
               <div>
@@ -498,5 +544,25 @@ const UserUpload: React.FC = () => {
     </div>
   );
 };
+
+const Users = ({ size, className }: { size: number; className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2.5" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
 
 export default UserUpload;

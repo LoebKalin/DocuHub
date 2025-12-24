@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { login } from '../services/authService';
-import { LogIn, ShieldAlert, Sun, Moon } from 'lucide-react';
+import { getTranslation, setLanguage, getCurrentLanguage, Language } from '../services/i18nService';
+import { LogIn, ShieldAlert, Sun, Moon, Globe, Check, ChevronDown } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -13,6 +14,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isLangOpen, setIsLangOpen] = useState(false);
+  const [currentLang, setCurrentLang] = useState<Language>(getCurrentLanguage());
+  
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme');
     return saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -28,6 +32,15 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
   }, [isDarkMode]);
 
+  // Listen for language changes to update local state
+  useEffect(() => {
+    const handleLangChange = () => {
+      setCurrentLang(getCurrentLanguage());
+    };
+    window.addEventListener('languageChange', handleLangChange);
+    return () => window.removeEventListener('languageChange', handleLangChange);
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -38,28 +51,79 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       if (user) {
         onLogin(user);
       } else {
-        setError('Invalid ID or password. Please try again.');
+        setError(getTranslation('login_error'));
       }
       setIsLoading(false);
     }, 800);
   };
 
+  const handleLangSelect = (lang: Language) => {
+    setLanguage(lang);
+    setIsLangOpen(false);
+  };
+
+  const languages: { name: Language; label: string; flag: string }[] = [
+    { name: 'English', label: 'English', flag: '🇺🇸' },
+    { name: 'Khmer', label: 'ភាសាខ្មែរ', flag: '🇰🇭' },
+    { name: 'Vietnam', label: 'Tiếng Việt', flag: '🇻🇳' },
+    { name: 'China', label: '中文', flag: '🇨🇳' }
+  ];
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] dark:bg-[#0f172a] p-4 transition-colors duration-500">
-      <button 
-        onClick={() => setIsDarkMode(!isDarkMode)}
-        className="absolute top-8 right-8 p-3 bg-white dark:bg-[#1e293b] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-indigo-600 transition-all"
-      >
-        {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-      </button>
+      {/* Top Controls */}
+      <div className="absolute top-8 right-8 flex items-center space-x-3">
+        {/* Language Selector */}
+        <div className="relative">
+          <button 
+            onClick={() => setIsLangOpen(!isLangOpen)}
+            className="flex items-center space-x-2 px-4 py-3 bg-white dark:bg-[#1e293b] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all font-bold text-sm"
+          >
+            <Globe size={18} />
+            <span className="hidden sm:inline">{currentLang}</span>
+            <ChevronDown size={14} className={`transition-transform duration-200 ${isLangOpen ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {isLangOpen && (
+            <div className="absolute right-0 mt-3 w-48 bg-white dark:bg-[#1e293b] rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 p-2 z-50 animate-in fade-in slide-in-from-top-2">
+              {languages.map((lang) => (
+                <button
+                  key={lang.name}
+                  onClick={() => handleLangSelect(lang.name)}
+                  className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${
+                    currentLang === lang.name
+                      ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <span className="mr-3 text-lg">{lang.flag}</span>
+                    <span className="font-bold text-sm">{lang.label}</span>
+                  </div>
+                  {currentLang === lang.name && <Check size={14} strokeWidth={3} />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
-      <div className="bg-white dark:bg-[#1e293b] rounded-[40px] shadow-2xl dark:shadow-indigo-500/5 w-full max-w-md p-10 relative overflow-hidden border border-slate-100 dark:border-slate-800">
+        {/* Theme Toggle */}
+        <button 
+          onClick={() => setIsDarkMode(!isDarkMode)}
+          className="p-3 bg-white dark:bg-[#1e293b] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-indigo-600 transition-all"
+          title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        >
+          {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
+      </div>
+
+      <div className="bg-white dark:bg-[#1e293b] rounded-[40px] shadow-2xl dark:shadow-indigo-500/5 w-full max-w-md p-10 relative overflow-hidden border border-slate-100 dark:border-slate-800 transition-all duration-300">
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-[20px] bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 mb-6 shadow-sm ring-1 ring-indigo-100 dark:ring-indigo-800">
             <LogIn size={28} />
           </div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">DocuHub Login</h1>
-          <p className="text-slate-400 dark:text-slate-500 mt-2 font-medium">Securely access your corporate documents</p>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{getTranslation('login_title')}</h1>
+          <p className="text-slate-400 dark:text-slate-500 mt-2 font-medium">{getTranslation('login_subtitle')}</p>
         </div>
 
         {error && (
@@ -71,7 +135,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-[13px] font-bold text-slate-500 dark:text-slate-400 mb-2.5">Identification ID</label>
+            <label className="block text-[13px] font-bold text-slate-500 dark:text-slate-400 mb-2.5">{getTranslation('login_id_label')}</label>
             <input
               type="text"
               value={id}
@@ -83,7 +147,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </div>
 
           <div>
-            <label className="block text-[13px] font-bold text-slate-500 dark:text-slate-400 mb-2.5">Password</label>
+            <label className="block text-[13px] font-bold text-slate-500 dark:text-slate-400 mb-2.5">{getTranslation('login_pass_label')}</label>
             <input
               type="password"
               value={password}
@@ -104,13 +168,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-            ) : 'Access Secure Portal'}
+            ) : getTranslation('login_btn')}
           </button>
         </form>
 
         <div className="mt-10 pt-6 border-t border-slate-50 dark:border-slate-800 text-center">
           <p className="text-xs text-slate-400 font-medium">
-            For demo: <span className="text-indigo-600 dark:text-indigo-400 font-bold">admin / admin</span>
+            Demo: <span className="text-indigo-600 dark:text-indigo-400 font-bold">admin / admin</span>
           </p>
         </div>
       </div>
