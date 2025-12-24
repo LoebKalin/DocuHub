@@ -10,7 +10,7 @@ const initDB = () => {
   if (!existing) {
     const defaultAdmin: User = {
       id: 'admin',
-      password: 'admin', // In a real app, use bcrypt. For demo, plain text in simulated DB.
+      password: 'admin',
       department: 'IT',
       role: UserRole.ADMIN
     };
@@ -56,6 +56,35 @@ export const bulkAddUsers = (newUsers: User[]) => {
   localStorage.setItem(USERS_DB_KEY, JSON.stringify(merged));
 };
 
+export const addUser = (user: User) => {
+  const users = getAllUsers();
+  if (users.some(u => u.id === user.id)) return false;
+  users.push(user);
+  localStorage.setItem(USERS_DB_KEY, JSON.stringify(users));
+  return true;
+};
+
+export const deleteUser = (id: string) => {
+  const users = getAllUsers();
+  const filtered = users.filter(u => u.id !== id);
+  localStorage.setItem(USERS_DB_KEY, JSON.stringify(filtered));
+};
+
+export const updateUser = (id: string, updates: Partial<User>) => {
+  const users = getAllUsers();
+  const index = users.findIndex(u => u.id === id);
+  if (index > -1) {
+    users[index] = { ...users[index], ...updates };
+    localStorage.setItem(USERS_DB_KEY, JSON.stringify(users));
+    return true;
+  }
+  return false;
+};
+
 export const getAllUsers = (): User[] => {
   return JSON.parse(localStorage.getItem(USERS_DB_KEY) || '[]');
+};
+
+export const updatePassword = (id: string, newPassword: string) => {
+  return updateUser(id, { password: newPassword });
 };

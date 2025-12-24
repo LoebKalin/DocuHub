@@ -7,6 +7,7 @@ import AdminDashboard from './components/AdminDashboard';
 import UserDashboard from './components/UserDashboard';
 import PdfUpload from './components/PdfUpload';
 import UserUpload from './components/UserUpload';
+import Settings from './components/Settings';
 import { User, UserRole } from './types';
 import { getAuthUser, logout } from './services/authService';
 
@@ -45,6 +46,9 @@ const App: React.FC = () => {
           <Route path="/user" element={
             user?.role === UserRole.USER ? <UserDashboard user={user} /> : <Navigate to="/login" />
           } />
+
+          {/* Shared Routes */}
+          <Route path="/settings" element={<Settings />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/login" />} />
