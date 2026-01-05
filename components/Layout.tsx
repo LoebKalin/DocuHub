@@ -47,7 +47,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout }) => {
         <div className="p-8 flex items-center justify-between">
           <div className={`flex items-center space-x-3 truncate ${!isSidebarOpen && 'justify-center w-full'}`}>
             <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center font-black text-white shrink-0 text-xl shadow-lg">D</div>
-            {isSidebarOpen && <span className="font-extrabold text-2xl tracking-tight">DocuHub</span>}
+            {isSidebarOpen && <span className="font-extrabold text-2xl tracking-tight">LDC~Hub</span>}
           </div>
         </div>
 
