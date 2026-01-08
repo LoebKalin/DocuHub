@@ -1,5 +1,5 @@
 {
-  "name": "DocuHub - Secure PDF Management",
+  "name": "LDC~Hub",
   "description": "A secure document management system where administrators can bulk-upload users via Excel and manage PDFs with structured filename formats. Users can access only their assigned documents based on their unique ID.",
   "requestFramePermissions": []
 }
